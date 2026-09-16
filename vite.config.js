@@ -6,6 +6,6 @@ export default defineConfig({
   build: { outDir: 'dist' },
   preview: {
     host: '0.0.0.0',
-    allowedHosts: ['wasalni-admin-production.up.railway.app'],
+    allowedHosts: true,
   },
 });
