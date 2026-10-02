@@ -133,5 +133,10 @@ function hasColumn(table, col) {
 if (!hasColumn('comments', 'parent_id')) { try { db.exec('ALTER TABLE comments ADD COLUMN parent_id INTEGER'); } catch {} }
 if (!hasColumn('users', 'last_active')) { try { db.exec('ALTER TABLE users ADD COLUMN last_active INTEGER'); } catch {} }
 if (!hasColumn('posts', 'edited_at')) { try { db.exec('ALTER TABLE posts ADD COLUMN edited_at INTEGER'); } catch {} }
+if (!hasColumn('users', 'email')) { try { db.exec('ALTER TABLE users ADD COLUMN email TEXT'); } catch {} }
+if (!hasColumn('users', 'phone')) { try { db.exec('ALTER TABLE users ADD COLUMN phone TEXT'); } catch {} }
+if (!hasColumn('users', 'token_version')) { try { db.exec('ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0'); } catch {} }
+if (!hasColumn('users', 'show_online')) { try { db.exec('ALTER TABLE users ADD COLUMN show_online INTEGER NOT NULL DEFAULT 1'); } catch {} }
+if (!hasColumn('users', 'show_last_seen')) { try { db.exec('ALTER TABLE users ADD COLUMN show_last_seen INTEGER NOT NULL DEFAULT 1'); } catch {} }
 
 export const now = () => Date.now();

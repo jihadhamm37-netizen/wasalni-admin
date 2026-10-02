@@ -341,3 +341,16 @@ textarea.input { resize: none; line-height: 1.6; }
 .seen-status { font-size: 11px; color: var(--text-3); text-align: start; padding: 0 6px 6px; }
 .typing-ind { font-size: 12px; color: var(--brand); padding: 2px 14px 6px; font-style: italic; }
 .edited-tag { font-size: 11px; color: var(--text-3); }
+
+/* ---------- center create button ---------- */
+.nav-create { flex: 0 0 auto; width: 54px; height: 54px; margin: -16px 6px 0; border-radius: 50%;
+  background: var(--brand); color: #fff; display: grid; place-items: center; box-shadow: 0 6px 16px color-mix(in srgb, var(--brand) 45%, transparent); }
+.nav-create:active { transform: scale(.92); }
+.nav-create svg { width: 28px; height: 28px; }
+/* profile tabs */
+.ptabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: calc(var(--top-h) + var(--safe-t)); z-index: 5; }
+.ptabs button { flex: 1; padding: 12px; font-weight: 700; font-size: 14px; color: var(--text-3); border-bottom: 2px solid transparent; }
+.ptabs button.on { color: var(--brand); border-bottom-color: var(--brand); }
+.media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; }
+.media-grid .cell { aspect-ratio: 1; overflow: hidden; background: var(--surface-2); }
+.media-grid .cell img { width: 100%; height: 100%; object-fit: cover; }

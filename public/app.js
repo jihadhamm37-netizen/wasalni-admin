@@ -67,12 +67,20 @@ Object.assign(STR.ar, {
   reply: 'رد', deleteComment: 'حذف التعليق', edited: 'مُعدّل', saved2: 'تم الحفظ', savedPosts: 'المنشورات المحفوظة', noSaved: 'لا منشورات محفوظة',
   follow: 'متابعة', unfollow: 'إلغاء المتابعة', followers: 'متابِع', followingL: 'يتابع', block: 'حظر', unblock: 'إلغاء الحظر', blocked2: 'تم الحظر', blockQ: 'حظر هذا المستخدم؟', unblockQ: 'إلغاء حظر هذا المستخدم؟', blockedUser: 'أنت حاظر هذا المستخدم', saveEdit: 'حفظ',
   online: 'متصل الآن', lastSeen: 'آخر ظهور', typing: 'يكتب…', seen: 'تمت القراءة', sent2: 'أُرسلت',
+  tabPosts: 'المنشورات', tabPhotos: 'الصور', tabVideos: 'الفيديوهات', shareProfile: 'مشاركة الملف', noPhotos: 'لا صور', noVideos: 'لا فيديوهات',
+  markAllRead: 'تعليم الكل كمقروء', accountSec: 'الحساب', privacy: 'الخصوصية', changePassword: 'تغيير كلمة المرور', currentPassword: 'كلمة المرور الحالية', newPassword: 'كلمة المرور الجديدة',
+  emailPhone: 'البريد والهاتف', email: 'البريد الإلكتروني', phone: 'الهاتف', showOnline: 'إظهار «متصل الآن»', showLastSeen: 'إظهار «آخر ظهور»',
+  logoutAll: 'تسجيل الخروج من جميع الأجهزة', deleteAccount: 'حذف الحساب', deleteAccountQ: 'حذف حسابك نهائياً؟ لا يمكن التراجع.', logoutAllQ: 'تسجيل الخروج من كل الأجهزة؟', pwChanged: 'تم تغيير كلمة المرور',
 });
 Object.assign(STR.en, {
   more: 'More', edit: 'Edit', savePost: 'Save post', unsave: 'Unsave', copyLink: 'Copy link', report: 'Report', reportQ: 'Reason for report?', reported: 'Reported, thank you', copied: 'Copied',
   reply: 'Reply', deleteComment: 'Delete comment', edited: 'edited', saved2: 'Saved', savedPosts: 'Saved posts', noSaved: 'No saved posts',
   follow: 'Follow', unfollow: 'Unfollow', followers: 'followers', followingL: 'following', block: 'Block', unblock: 'Unblock', blocked2: 'Blocked', blockQ: 'Block this user?', unblockQ: 'Unblock this user?', blockedUser: "You've blocked this user", saveEdit: 'Save',
   online: 'Online', lastSeen: 'Last seen', typing: 'typing…', seen: 'Seen', sent2: 'Sent',
+  tabPosts: 'Posts', tabPhotos: 'Photos', tabVideos: 'Videos', shareProfile: 'Share profile', noPhotos: 'No photos', noVideos: 'No videos',
+  markAllRead: 'Mark all as read', accountSec: 'Account', privacy: 'Privacy', changePassword: 'Change password', currentPassword: 'Current password', newPassword: 'New password',
+  emailPhone: 'Email & phone', email: 'Email', phone: 'Phone', showOnline: 'Show "Online"', showLastSeen: 'Show "Last seen"',
+  logoutAll: 'Log out of all devices', deleteAccount: 'Delete account', deleteAccountQ: 'Permanently delete your account? This cannot be undone.', logoutAllQ: 'Log out of all devices?', pwChanged: 'Password changed',
 });
 
 /* ----------------------------- state ----------------------------- */
@@ -173,6 +181,11 @@ const I = {
   bookmarkFill:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1z"/></svg>',
   reply:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg>',
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" stroke-linejoin="round"/></svg>',
+  mail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M4 7l8 6 8-6"/></svg>',
+  grid:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
 };
 
 /* ----------------------------- navigation ----------------------- */
@@ -273,12 +286,13 @@ function topBar() {
 function bottomNav() {
   const n = store.route.name;
   const item = (name, icon, iconFill, label, badge) => `<button data-go="${name}" class="${n === name ? 'active' : ''}">${n === name ? iconFill : icon}${badge ? `<span class="badge" data-badge="${badge}" hidden></span>` : ''}<span class="lbl">${label}</span></button>`;
-  return `<nav class="bottomnav">${item('feed', I.home, I.homeFill, t('navHome'))}${item('friends', I.friends, I.friends, t('navFriends'), 'requests')}${item('chats', I.chat, I.chat, t('navChats'), 'messages')}${item('me', I.user, I.user, t('navProfile'))}</nav>`;
+  return `<nav class="bottomnav">${item('feed', I.home, I.homeFill, t('navHome'))}${item('friends', I.friends, I.friends, t('navFriends'), 'requests')}<button class="nav-create" data-create="1" aria-label="${t('createPost')}">${I.plus}</button>${item('chats', I.chat, I.chat, t('navChats'), 'messages')}${item('me', I.user, I.user, t('navProfile'))}</nav>`;
 }
 function wireShell() {
   document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => {
     const d = b.dataset.go; if (d === 'me') return navigate('profile', { id: store.me.id }); navigate(d);
   }));
+  document.querySelector('[data-create]')?.addEventListener('click', () => openComposer());
 }
 function paintBadges() {
   document.querySelectorAll('[data-badge]').forEach((el) => {
@@ -486,7 +500,7 @@ async function viewProfile() {
     const wrap = document.getElementById('profileWrap');
     const followBtn = () => u.am_following ? `<button class="btn ghost" id="followBtn">${t('unfollow')}</button>` : `<button class="btn" id="followBtn">${t('follow')}</button>`;
     const statusBtn = () => {
-      if (u.friend_status === 'self') return `<button class="btn ghost" id="editBtn">${t('editProfile')}</button>`;
+      if (u.friend_status === 'self') return `<button class="btn ghost" id="editBtn">${t('editProfile')}</button><button class="btn ghost" id="shareBtn">${I.share}</button><button class="btn ghost" id="privBtn">${I.shield}</button>`;
       if (u.blocked) return `<button class="btn" id="unblockBtn">${t('unblock')}</button>`;
       let left = '';
       if (u.friend_status === 'friends') left = `<button class="btn ghost" id="msgBtn">${t('message')}</button><button class="btn" id="callBtn">${I.phone}</button><button class="btn" id="vcallBtn">${I.video}</button>`;
@@ -499,10 +513,22 @@ async function viewProfile() {
       <div class="profile-info">${avatar(u, 'lg')}<div class="name">${esc(u.name)}</div><div class="username" dir="ltr">@${esc(u.username)}</div>${u.bio ? `<div class="bio">${esc(u.bio)}</div>` : ''}
       <div class="profile-stats"><span><b>${u.post_count}</b> ${t('postsLbl')}</span><span><b>${u.friend_count}</b> ${t('friendsCountLbl')}</span><span><b>${u.followers}</b> ${t('followers')}</span><span><b>${u.following}</b> ${t('followingL')}</span></div>
       <div class="profile-cta">${statusBtn()}</div></div></div>
-      ${u.blocked ? `<div class="empty"><p>${t('blockedUser')}</p></div>` : `<div class="feed" style="padding-top:10px">${posts.length ? posts.map(postCard).join('') : `<div class="empty"><p>${t('noPosts')}</p></div>`}</div>`}`;
-    wirePosts(wrap);
+      ${u.blocked ? `<div class="empty"><p>${t('blockedUser')}</p></div>` : `<div class="ptabs"><button class="on" data-ptab="posts">${t('tabPosts')}</button><button data-ptab="photos">${t('tabPhotos')}</button><button data-ptab="videos">${t('tabVideos')}</button></div><div id="ptabContent"></div>`}`;
+    const photos = posts.filter((p) => p.image);
+    const renderTab = (tab) => {
+      const c = wrap.querySelector('#ptabContent'); if (!c) return;
+      if (tab === 'posts') { c.innerHTML = posts.length ? `<div class="feed" style="padding-top:10px">${posts.map(postCard).join('')}</div>` : `<div class="empty"><p>${t('noPosts')}</p></div>`; wirePosts(c); }
+      else if (tab === 'photos') { c.innerHTML = photos.length ? `<div class="media-grid">${photos.map((p) => `<div class="cell" data-openpost="${p.id}"><img src="${esc(p.image)}"></div>`).join('')}</div>` : `<div class="empty"><p>${t('noPhotos')}</p></div>`; c.querySelectorAll('[data-openpost]').forEach((el) => el.addEventListener('click', () => openComments(Number(el.dataset.openpost)))); }
+      else { c.innerHTML = `<div class="empty"><div class="big">🎬</div><p>${t('noVideos')}</p></div>`; }
+    };
+    if (!u.blocked) {
+      renderTab('posts');
+      wrap.querySelectorAll('[data-ptab]').forEach((b) => b.addEventListener('click', () => { wrap.querySelectorAll('[data-ptab]').forEach((x) => x.classList.toggle('on', x === b)); renderTab(b.dataset.ptab); }));
+    }
     wrap.querySelector('#backBtn')?.addEventListener('click', () => navigate('feed'));
     wrap.querySelector('#editBtn')?.addEventListener('click', () => openEditProfile(u));
+    wrap.querySelector('#shareBtn')?.addEventListener('click', () => copyText(location.origin));
+    wrap.querySelector('#privBtn')?.addEventListener('click', () => navigate('settings'));
     wrap.querySelector('#msgBtn')?.addEventListener('click', () => navigate('chat', { userId: u.id }));
     wrap.querySelector('#callBtn')?.addEventListener('click', () => startCall(u, false));
     wrap.querySelector('#vcallBtn')?.addEventListener('click', () => startCall(u, true));
@@ -587,18 +613,21 @@ function appendChatMessage(m) { const body = document.getElementById('chatBody')
 
 /* ============================ NOTIFICATIONS ============================ */
 async function viewNotifications() {
-  shell(`<div><div class="section-title">${t('notifs')}</div><div id="notifList" class="list"><div class="spinner"></div></div></div>`);
+  shell(`<div><div class="section-title" style="display:flex;align-items:center"><span style="flex:1">${t('notifs')}</span><button class="btn sm ghost" id="markAll">${t('markAllRead')}</button></div><div id="notifList" class="list"><div class="spinner"></div></div></div>`);
+  document.getElementById('markAll').addEventListener('click', async () => { try { await api('/api/notifications/read-all', { method: 'POST' }); store.counts.notifications = 0; paintBadges(); viewNotifications(); } catch (e) { toast(e.message); } });
   try {
     const items = await api('/api/notifications'); store.counts.notifications = 0; paintBadges();
     const el = document.getElementById('notifList');
-    const verb = { like: t('verbLike'), comment: t('verbComment'), friend_request: t('verbFriendRequest'), friend_accept: t('verbFriendAccept') };
+    const verb = { like: t('verbLike'), comment: t('verbComment'), friend_request: t('verbFriendRequest'), friend_accept: t('verbFriendAccept'), follow: prefs.lang === 'ar' ? 'بدأ متابعتك' : 'started following you' };
     el.innerHTML = items.length ? items.map((n) => `<div class="notif ${n.was_read ? '' : 'unread'}" ${n.actor ? `data-profile="${n.actor.id}"` : ''}>${n.actor ? avatar(n.actor, 'sm') : ''}<div class="txt"><b>${esc(n.actor ? n.actor.name : t('someone'))}</b> ${verb[n.type] || ''}</div><span style="font-size:12px;color:var(--text-3)">${timeAgo(n.created_at)}</span></div>`).join('') : `<div class="empty"><div class="big">🔔</div><p>${t('notifEmpty')}</p></div>`;
     el.querySelectorAll('[data-profile]').forEach((b) => b.addEventListener('click', () => navigate('profile', { id: Number(b.dataset.profile) })));
   } catch (e) { toast(e.message); }
 }
 
 /* ============================ SETTINGS ============================ */
-function viewSettings() {
+async function viewSettings() {
+  let s = { show_online: true, show_last_seen: true, email: '', phone: '' };
+  try { s = await api('/api/me/settings'); } catch {}
   shell(`<div><div class="section-title">${t('settings')}</div>
     <div class="set-group">
       <div class="set-row"><span class="ic">${isDark() ? I.homeFill : I.home}</span><span class="lbl">${t('darkMode')}</span>
@@ -606,13 +635,59 @@ function viewSettings() {
       <div class="set-row"><span class="ic">🌐</span><span class="lbl">${t('language')}</span>
         <div class="seg"><button data-lang="ar" class="${prefs.lang === 'ar' ? 'on' : ''}">${t('arabic')}</button><button data-lang="en" class="${prefs.lang === 'en' ? 'on' : ''}">${t('english')}</button></div></div>
     </div>
-    <div class="set-group"><div class="set-row" id="savedRow"><span class="ic">${I.bookmark}</span><span class="lbl">${t('savedPosts')}</span></div></div>
-    <div class="set-group"><div class="set-row" id="logoutRow"><span class="ic">${I.logout}</span><span class="lbl" style="color:var(--accent)">${t('logout')}</span></div></div>
+    <div class="section-title">${t('privacy')}</div>
+    <div class="set-group">
+      <div class="set-row"><span class="ic">${I.shield}</span><span class="lbl">${t('showOnline')}</span><label class="switch"><input type="checkbox" id="soTog" ${s.show_online ? 'checked' : ''}><span class="sl"></span></label></div>
+      <div class="set-row"><span class="ic">${I.shield}</span><span class="lbl">${t('showLastSeen')}</span><label class="switch"><input type="checkbox" id="slsTog" ${s.show_last_seen ? 'checked' : ''}><span class="sl"></span></label></div>
+    </div>
+    <div class="section-title">${t('accountSec')}</div>
+    <div class="set-group">
+      <div class="set-row" id="savedRow"><span class="ic">${I.bookmark}</span><span class="lbl">${t('savedPosts')}</span></div>
+      <div class="set-row" id="contactRow"><span class="ic">${I.mail}</span><span class="lbl">${t('emailPhone')}</span></div>
+      <div class="set-row" id="pwRow"><span class="ic">${I.lock}</span><span class="lbl">${t('changePassword')}</span></div>
+      <div class="set-row" id="logoutAllRow"><span class="ic">${I.logout}</span><span class="lbl">${t('logoutAll')}</span></div>
+    </div>
+    <div class="set-group">
+      <div class="set-row" id="logoutRow"><span class="ic">${I.logout}</span><span class="lbl" style="color:var(--accent)">${t('logout')}</span></div>
+      <div class="set-row" id="delRow"><span class="ic">${I.trash}</span><span class="lbl" style="color:var(--accent)">${t('deleteAccount')}</span></div>
+    </div>
     <div style="text-align:center;color:var(--text-3);font-size:12px;margin-top:16px">لمّة · Lamma</div></div>`);
   document.getElementById('darkTog').addEventListener('change', (e) => setTheme(e.target.checked ? 'dark' : 'light'));
   document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lang !== prefs.lang) setLang(b.dataset.lang); }));
+  document.getElementById('soTog').addEventListener('change', (e) => api('/api/me/privacy', { method: 'PUT', body: { show_online: e.target.checked } }).catch(() => {}));
+  document.getElementById('slsTog').addEventListener('change', (e) => api('/api/me/privacy', { method: 'PUT', body: { show_last_seen: e.target.checked } }).catch(() => {}));
   document.getElementById('savedRow').addEventListener('click', () => navigate('saved'));
+  document.getElementById('contactRow').addEventListener('click', () => editContact(s));
+  document.getElementById('pwRow').addEventListener('click', () => changePassword());
+  document.getElementById('logoutAllRow').addEventListener('click', async () => { if (!confirm(t('logoutAllQ'))) return; try { const r = await api('/api/me/logout-all', { method: 'POST' }); store.token = r.token; localStorage.setItem('lamma_token', r.token); toast(t('saved')); } catch (e) { toast(e.message); } });
+  document.getElementById('delRow').addEventListener('click', async () => { if (!confirm(t('deleteAccountQ'))) return; try { await api('/api/me', { method: 'DELETE' }); logout(); } catch (e) { toast(e.message); } });
   document.getElementById('logoutRow').addEventListener('click', () => { if (confirm(t('logoutQ'))) logout(); });
+}
+function changePassword() {
+  const b = document.createElement('div'); b.className = 'modal-backdrop';
+  b.innerHTML = `<div class="modal"><div class="modal-head"><button class="icon-btn" id="pC" style="background:transparent">${I.x}</button><h3>${t('changePassword')}</h3><button class="btn sm" id="pS">${t('save')}</button></div>
+    <div class="field"><label>${t('currentPassword')}</label><input class="input" id="pOld" type="password"></div>
+    <div class="field"><label>${t('newPassword')}</label><input class="input" id="pNew" type="password"></div></div>`;
+  document.body.appendChild(b);
+  b.addEventListener('click', (e) => { if (e.target === b) b.remove(); });
+  b.querySelector('#pC').addEventListener('click', () => b.remove());
+  b.querySelector('#pS').addEventListener('click', async () => {
+    try { const r = await api('/api/me/password', { method: 'PUT', body: { old_password: b.querySelector('#pOld').value, new_password: b.querySelector('#pNew').value } });
+      store.token = r.token; localStorage.setItem('lamma_token', r.token); b.remove(); toast(t('pwChanged'));
+    } catch (e) { toast(e.message); }
+  });
+}
+function editContact(s) {
+  const b = document.createElement('div'); b.className = 'modal-backdrop';
+  b.innerHTML = `<div class="modal"><div class="modal-head"><button class="icon-btn" id="cC" style="background:transparent">${I.x}</button><h3>${t('emailPhone')}</h3><button class="btn sm" id="cS">${t('save')}</button></div>
+    <div class="field"><label>${t('email')}</label><input class="input" id="cEmail" type="email" dir="ltr" value="${esc(s.email || '')}"></div>
+    <div class="field"><label>${t('phone')}</label><input class="input" id="cPhone" type="tel" dir="ltr" value="${esc(s.phone || '')}"></div></div>`;
+  document.body.appendChild(b);
+  b.addEventListener('click', (e) => { if (e.target === b) b.remove(); });
+  b.querySelector('#cC').addEventListener('click', () => b.remove());
+  b.querySelector('#cS').addEventListener('click', async () => {
+    try { await api('/api/me/contact', { method: 'PUT', body: { email: b.querySelector('#cEmail').value.trim(), phone: b.querySelector('#cPhone').value.trim() } }); b.remove(); toast(t('saved')); } catch (e) { toast(e.message); }
+  });
 }
 
 async function viewSaved() {

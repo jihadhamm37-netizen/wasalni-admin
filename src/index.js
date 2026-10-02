@@ -68,7 +68,10 @@ function auth(req) {
   const token = h.startsWith('Bearer ') ? h.slice(7) : null;
   const payload = verifyToken(token);
   if (!payload) return null;
-  return db.prepare('SELECT id, username, name, bio, avatar, cover, created_at FROM users WHERE id = ?').get(payload.uid) || null;
+  const u = db.prepare('SELECT id, username, name, bio, avatar, cover, created_at, token_version FROM users WHERE id = ?').get(payload.uid);
+  if (!u) return null;
+  if ((payload.ver || 0) !== (u.token_version || 0)) return null; // logged out from all devices
+  return u;
 }
 
 /* ------------------------------- SSE hub ---------------------------------- */
@@ -144,7 +147,7 @@ post('/api/auth/register', async (req, res) => {
   const info = db.prepare('INSERT INTO users (username, name, pass_hash, pass_salt, created_at) VALUES (?,?,?,?,?)')
     .run(uname, String(name).trim(), hash, salt, now());
   const user = db.prepare('SELECT id, username, name, bio, avatar, cover, created_at FROM users WHERE id = ?').get(Number(info.lastInsertRowid));
-  ok(res, { token: signToken({ uid: user.id }), user: pubUser(user) });
+  ok(res, { token: signToken({ uid: user.id, ver: 0 }), user: pubUser(user) });
 });
 
 post('/api/auth/login', async (req, res) => {
@@ -152,7 +155,7 @@ post('/api/auth/login', async (req, res) => {
   if (!username || !password) return bad(res, 'username and password are required');
   const u = db.prepare('SELECT * FROM users WHERE username = ?').get(String(username).trim().toLowerCase());
   if (!u || !verifyPassword(String(password), u.pass_hash, u.pass_salt)) return bad(res, 'invalid username or password', 401);
-  ok(res, { token: signToken({ uid: u.id }), user: pubUser(u) });
+  ok(res, { token: signToken({ uid: u.id, ver: u.token_version || 0 }), user: pubUser(u) });
 });
 
 // Me
@@ -164,6 +167,54 @@ put('/api/me', async (req, res) => {
   db.prepare('UPDATE users SET name = COALESCE(?,name), bio = COALESCE(?,bio), avatar = COALESCE(?,avatar), cover = COALESCE(?,cover) WHERE id = ?')
     .run(name ?? null, bio ?? null, avatar ?? null, cover ?? null, me.id);
   ok(res, pubUser(db.prepare('SELECT * FROM users WHERE id = ?').get(me.id)));
+});
+
+// Account settings
+get('/api/me/settings', (req, res) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const u = db.prepare('SELECT email, phone, show_online, show_last_seen FROM users WHERE id=?').get(me.id);
+  ok(res, { email: u.email || '', phone: u.phone || '', show_online: !!u.show_online, show_last_seen: !!u.show_last_seen });
+});
+
+put('/api/me/contact', async (req, res) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const { email, phone } = await readBody(req);
+  db.prepare('UPDATE users SET email = COALESCE(?,email), phone = COALESCE(?,phone) WHERE id=?').run(email ?? null, phone ?? null, me.id);
+  ok(res, { ok: true });
+});
+
+put('/api/me/privacy', async (req, res) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const { show_online, show_last_seen } = await readBody(req);
+  db.prepare('UPDATE users SET show_online = COALESCE(?,show_online), show_last_seen = COALESCE(?,show_last_seen) WHERE id=?')
+    .run(show_online === undefined ? null : (show_online ? 1 : 0), show_last_seen === undefined ? null : (show_last_seen ? 1 : 0), me.id);
+  ok(res, { ok: true });
+});
+
+put('/api/me/password', async (req, res) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const { old_password, new_password } = await readBody(req);
+  const u = db.prepare('SELECT * FROM users WHERE id=?').get(me.id);
+  if (!verifyPassword(String(old_password || ''), u.pass_hash, u.pass_salt)) return bad(res, 'كلمة المرور الحالية غير صحيحة', 401);
+  if (String(new_password || '').length < 6) return bad(res, 'كلمة المرور الجديدة قصيرة (6 أحرف على الأقل)');
+  const { hash, salt } = hashPassword(String(new_password));
+  const ver = (u.token_version || 0) + 1;
+  db.prepare('UPDATE users SET pass_hash=?, pass_salt=?, token_version=? WHERE id=?').run(hash, salt, ver, me.id);
+  ok(res, { token: signToken({ uid: me.id, ver }) });
+});
+
+post('/api/me/logout-all', (req, res) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const u = db.prepare('SELECT token_version FROM users WHERE id=?').get(me.id);
+  const ver = (u.token_version || 0) + 1;
+  db.prepare('UPDATE users SET token_version=? WHERE id=?').run(ver, me.id);
+  ok(res, { token: signToken({ uid: me.id, ver }) });
+});
+
+del('/api/me', (req, res) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  db.prepare('DELETE FROM users WHERE id=?').run(me.id); // cascades everything
+  ok(res, { ok: true });
 });
 
 // Users
@@ -191,7 +242,7 @@ get('/api/users/:id', (req, res, params) => {
   const amFollowing = !!db.prepare('SELECT 1 FROM follows WHERE follower_id=? AND following_id=?').get(me.id, u.id);
   const blocked = !!db.prepare('SELECT 1 FROM blocks WHERE blocker_id=? AND blocked_id=?').get(me.id, u.id);
   ok(res, { ...pubUser(u), post_count: postCount, friend_count: friendCount, followers, following, am_following: amFollowing,
-    blocked, online: isOnline(u.id), last_active: u.last_active || null, friend_status: friendStatus(me.id, u.id) });
+    blocked, online: isOnline(u.id) && !!u.show_online, last_active: u.show_last_seen ? (u.last_active || null) : null, friend_status: friendStatus(me.id, u.id) });
 });
 
 get('/api/users/:id/posts', (req, res, params) => {
@@ -439,7 +490,8 @@ get('/api/conversations', (req, res) => {
       WHERE (sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?) ORDER BY created_at DESC LIMIT 1`)
       .get(me.id, p.uid, p.uid, me.id);
     const unread = db.prepare('SELECT COUNT(*) c FROM messages WHERE sender_id=? AND receiver_id=? AND read_at IS NULL').get(p.uid, me.id).c;
-    return { user: { ...u, online: isOnline(u.id) }, last, unread };
+    const so = db.prepare('SELECT show_online FROM users WHERE id=?').get(u.id);
+    return { user: { ...u, online: isOnline(u.id) && !!(so && so.show_online) }, last, unread };
   });
   ok(res, out);
 });
@@ -498,6 +550,12 @@ get('/api/notifications', (req, res) => {
     actor: r.actor_id ? { id: r.actor_id, name: r.name, username: r.username, avatar: r.avatar } : null })));
 });
 
+post('/api/notifications/read-all', (req, res) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  db.prepare('UPDATE notifications SET read_at = ? WHERE user_id = ? AND read_at IS NULL').run(now(), me.id);
+  ok(res, { ok: true });
+});
+
 get('/api/notifications/count', (req, res) => {
   const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
   const notif = db.prepare('SELECT COUNT(*) c FROM notifications WHERE user_id=? AND read_at IS NULL').get(me.id).c;
@@ -532,6 +590,8 @@ get('/api/stream', (req, res) => {
 
 // notify a user's friends of their online/offline change
 function broadcastPresence(uid, online) {
+  const u = db.prepare('SELECT show_online FROM users WHERE id=?').get(uid);
+  if (u && !u.show_online) return; // user hides presence
   const friends = db.prepare(`SELECT CASE WHEN requester_id=? THEN addressee_id ELSE requester_id END oid
     FROM friendships WHERE status='accepted' AND (requester_id=? OR addressee_id=?)`).all(uid, uid, uid);
   for (const f of friends) pushTo(f.oid, 'presence', { user: uid, online, last_active: now() });
