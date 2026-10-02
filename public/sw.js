@@ -1,5 +1,5 @@
 // Lamma service worker — makes the app installable and lets the shell load offline.
-const CACHE = 'lamma-v1';
+const CACHE = 'lamma-v2';
 const SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/config.js', '/icon.svg', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

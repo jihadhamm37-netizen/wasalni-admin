@@ -354,6 +354,16 @@ post('/api/messages', async (req, res) => {
   ok(res, msg);
 });
 
+// WebRTC call signaling (relayed over SSE). data: {kind, to, ...payload}
+post('/api/signal', async (req, res) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const body = await readBody(req);
+  const to = Number(body.to);
+  if (!to) return bad(res, 'recipient required');
+  pushTo(to, 'signal', { from: me.id, fromName: me.name, fromAvatar: me.avatar || null, kind: body.kind, media: body.media, sdp: body.sdp, candidate: body.candidate });
+  ok(res, { ok: true });
+});
+
 // Notifications
 get('/api/notifications', (req, res) => {
   const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
