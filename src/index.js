@@ -99,12 +99,19 @@ function postView(postId, meId) {
   const likes = db.prepare('SELECT COUNT(*) c FROM likes WHERE post_id = ?').get(p.id).c;
   const comments = db.prepare('SELECT COUNT(*) c FROM comments WHERE post_id = ?').get(p.id).c;
   const liked = meId ? !!db.prepare('SELECT 1 FROM likes WHERE post_id = ? AND user_id = ?').get(p.id, meId) : false;
+  const saved = meId ? !!db.prepare('SELECT 1 FROM saved_posts WHERE post_id = ? AND user_id = ?').get(p.id, meId) : false;
   return {
-    id: p.id, content: p.content, image: p.image, created_at: p.created_at,
+    id: p.id, content: p.content, image: p.image, created_at: p.created_at, edited_at: p.edited_at || null,
     author: { id: p.user_id, username: p.username, name: p.name, avatar: p.avatar },
-    likes, comments, liked,
+    likes, comments, liked, saved,
   };
 }
+
+// block helpers
+function isBlocked(a, b) { // either direction
+  return !!db.prepare('SELECT 1 FROM blocks WHERE (blocker_id=? AND blocked_id=?) OR (blocker_id=? AND blocked_id=?)').get(a, b, b, a);
+}
+const isOnline = (uid) => clients.has(uid);
 
 function friendStatus(meId, otherId) {
   if (meId === otherId) return 'self';
@@ -166,8 +173,10 @@ get('/api/users', (req, res) => {
   const q = (u.searchParams.get('q') || '').trim().toLowerCase();
   if (!q) return ok(res, []);
   const rows = db.prepare(`SELECT id, username, name, avatar, bio FROM users
-     WHERE id != ? AND (lower(name) LIKE ? OR username LIKE ?) LIMIT 30`)
-    .all(me.id, `%${q}%`, `%${q}%`);
+     WHERE id != ? AND (lower(name) LIKE ? OR username LIKE ?)
+     AND id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id=?)
+     AND id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_id=?) LIMIT 30`)
+    .all(me.id, `%${q}%`, `%${q}%`, me.id, me.id);
   ok(res, rows.map((r) => ({ ...r, friend_status: friendStatus(me.id, r.id) })));
 });
 
@@ -177,7 +186,12 @@ get('/api/users/:id', (req, res, params) => {
   if (!u) return bad(res, 'user not found', 404);
   const postCount = db.prepare('SELECT COUNT(*) c FROM posts WHERE user_id = ?').get(u.id).c;
   const friendCount = db.prepare(`SELECT COUNT(*) c FROM friendships WHERE status='accepted' AND (requester_id=? OR addressee_id=?)`).get(u.id, u.id).c;
-  ok(res, { ...pubUser(u), post_count: postCount, friend_count: friendCount, friend_status: friendStatus(me.id, u.id) });
+  const followers = db.prepare('SELECT COUNT(*) c FROM follows WHERE following_id = ?').get(u.id).c;
+  const following = db.prepare('SELECT COUNT(*) c FROM follows WHERE follower_id = ?').get(u.id).c;
+  const amFollowing = !!db.prepare('SELECT 1 FROM follows WHERE follower_id=? AND following_id=?').get(me.id, u.id);
+  const blocked = !!db.prepare('SELECT 1 FROM blocks WHERE blocker_id=? AND blocked_id=?').get(me.id, u.id);
+  ok(res, { ...pubUser(u), post_count: postCount, friend_count: friendCount, followers, following, am_following: amFollowing,
+    blocked, online: isOnline(u.id), last_active: u.last_active || null, friend_status: friendStatus(me.id, u.id) });
 });
 
 get('/api/users/:id/posts', (req, res, params) => {
@@ -198,13 +212,47 @@ post('/api/posts', async (req, res) => {
 
 get('/api/posts', (req, res) => {
   const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
-  // feed = my posts + accepted friends' posts
+  // feed = my posts + accepted friends' posts + followed users' posts, minus blocked
   const rows = db.prepare(`
-    SELECT p.id FROM posts p WHERE p.user_id = ? OR p.user_id IN (
-      SELECT CASE WHEN requester_id = ? THEN addressee_id ELSE requester_id END
-      FROM friendships WHERE status='accepted' AND (requester_id = ? OR addressee_id = ?)
-    ) ORDER BY p.created_at DESC LIMIT 100`).all(me.id, me.id, me.id, me.id);
+    SELECT p.id FROM posts p WHERE (
+      p.user_id = ?
+      OR p.user_id IN (
+        SELECT CASE WHEN requester_id = ? THEN addressee_id ELSE requester_id END
+        FROM friendships WHERE status='accepted' AND (requester_id = ? OR addressee_id = ?))
+      OR p.user_id IN (SELECT following_id FROM follows WHERE follower_id = ?)
+    )
+    AND p.user_id NOT IN (SELECT blocked_id FROM blocks WHERE blocker_id=?)
+    AND p.user_id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_id=?)
+    ORDER BY p.created_at DESC LIMIT 100`).all(me.id, me.id, me.id, me.id, me.id, me.id, me.id);
   ok(res, rows.map((r) => postView(r.id, me.id)));
+});
+
+// Edit post
+put('/api/posts/:id', async (req, res, params) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const p = db.prepare('SELECT * FROM posts WHERE id = ?').get(Number(params.id));
+  if (!p) return bad(res, 'post not found', 404);
+  if (p.user_id !== me.id) return bad(res, 'forbidden', 403);
+  const { content } = await readBody(req);
+  db.prepare('UPDATE posts SET content = ?, edited_at = ? WHERE id = ?').run((content || '').trim(), now(), p.id);
+  ok(res, postView(p.id, me.id));
+});
+
+// Save / unsave
+post('/api/posts/:id/save', (req, res, params) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const pid = Number(params.id);
+  if (!db.prepare('SELECT 1 FROM posts WHERE id=?').get(pid)) return bad(res, 'post not found', 404);
+  const ex = db.prepare('SELECT 1 FROM saved_posts WHERE user_id=? AND post_id=?').get(me.id, pid);
+  if (ex) db.prepare('DELETE FROM saved_posts WHERE user_id=? AND post_id=?').run(me.id, pid);
+  else db.prepare('INSERT INTO saved_posts (user_id, post_id, created_at) VALUES (?,?,?)').run(me.id, pid, now());
+  ok(res, { saved: !ex });
+});
+
+get('/api/posts/saved', (req, res) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const rows = db.prepare('SELECT post_id FROM saved_posts WHERE user_id=? ORDER BY created_at DESC LIMIT 100').all(me.id);
+  ok(res, rows.map((r) => postView(r.post_id, me.id)).filter(Boolean));
 });
 
 get('/api/posts/:id', (req, res, params) => {
@@ -237,21 +285,87 @@ post('/api/posts/:id/like', (req, res, params) => {
 // Comments
 get('/api/posts/:id/comments', (req, res, params) => {
   const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
-  const rows = db.prepare(`SELECT c.id, c.content, c.created_at, u.id uid, u.name, u.username, u.avatar
+  const rows = db.prepare(`SELECT c.id, c.content, c.created_at, c.parent_id, u.id uid, u.name, u.username, u.avatar
      FROM comments c JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.created_at ASC`).all(Number(params.id));
-  ok(res, rows.map((r) => ({ id: r.id, content: r.content, created_at: r.created_at, author: { id: r.uid, name: r.name, username: r.username, avatar: r.avatar } })));
+  ok(res, rows.map((r) => ({ id: r.id, content: r.content, created_at: r.created_at, parent_id: r.parent_id || null,
+    like_count: db.prepare('SELECT COUNT(*) c FROM comment_likes WHERE comment_id=?').get(r.id).c,
+    liked: me ? !!db.prepare('SELECT 1 FROM comment_likes WHERE comment_id=? AND user_id=?').get(r.id, me.id) : false,
+    author: { id: r.uid, name: r.name, username: r.username, avatar: r.avatar } })));
 });
 
 post('/api/posts/:id/comments', async (req, res, params) => {
   const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
-  const { content } = await readBody(req);
+  const { content, parent_id } = await readBody(req);
   if (!content || !content.trim()) return bad(res, 'comment cannot be empty');
   const p = db.prepare('SELECT * FROM posts WHERE id = ?').get(Number(params.id));
   if (!p) return bad(res, 'post not found', 404);
-  const info = db.prepare('INSERT INTO comments (post_id, user_id, content, created_at) VALUES (?,?,?,?)')
-    .run(p.id, me.id, content.trim(), now());
+  const info = db.prepare('INSERT INTO comments (post_id, user_id, content, parent_id, created_at) VALUES (?,?,?,?,?)')
+    .run(p.id, me.id, content.trim(), parent_id ? Number(parent_id) : null, now());
   notify(p.user_id, 'comment', me.id, p.id);
-  ok(res, { id: Number(info.lastInsertRowid), content: content.trim(), created_at: now(), author: pubUser(me) });
+  ok(res, { id: Number(info.lastInsertRowid), content: content.trim(), created_at: now(), parent_id: parent_id || null, like_count: 0, liked: false, author: pubUser(me) });
+});
+
+post('/api/comments/:id/like', (req, res, params) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const cid = Number(params.id);
+  const c = db.prepare('SELECT * FROM comments WHERE id=?').get(cid);
+  if (!c) return bad(res, 'comment not found', 404);
+  const ex = db.prepare('SELECT 1 FROM comment_likes WHERE comment_id=? AND user_id=?').get(cid, me.id);
+  if (ex) db.prepare('DELETE FROM comment_likes WHERE comment_id=? AND user_id=?').run(cid, me.id);
+  else db.prepare('INSERT INTO comment_likes (comment_id, user_id, created_at) VALUES (?,?,?)').run(cid, me.id, now());
+  ok(res, { liked: !ex, like_count: db.prepare('SELECT COUNT(*) c FROM comment_likes WHERE comment_id=?').get(cid).c });
+});
+
+del('/api/comments/:id', (req, res, params) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const c = db.prepare('SELECT * FROM comments WHERE id=?').get(Number(params.id));
+  if (!c) return bad(res, 'comment not found', 404);
+  if (c.user_id !== me.id) return bad(res, 'forbidden', 403);
+  db.prepare('DELETE FROM comments WHERE id=? OR parent_id=?').run(c.id, c.id);
+  ok(res, { ok: true });
+});
+
+// Follow
+post('/api/users/:id/follow', (req, res, params) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const other = Number(params.id);
+  if (other === me.id) return bad(res, 'cannot follow yourself');
+  if (!db.prepare('SELECT 1 FROM users WHERE id=?').get(other)) return bad(res, 'user not found', 404);
+  db.prepare('INSERT OR IGNORE INTO follows (follower_id, following_id, created_at) VALUES (?,?,?)').run(me.id, other, now());
+  notify(other, 'follow', me.id);
+  ok(res, { following: true });
+});
+del('/api/users/:id/follow', (req, res, params) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  db.prepare('DELETE FROM follows WHERE follower_id=? AND following_id=?').run(me.id, Number(params.id));
+  ok(res, { following: false });
+});
+
+// Block
+post('/api/users/:id/block', (req, res, params) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const other = Number(params.id);
+  if (other === me.id) return bad(res, 'cannot block yourself');
+  db.prepare('INSERT OR IGNORE INTO blocks (blocker_id, blocked_id, created_at) VALUES (?,?,?)').run(me.id, other, now());
+  // remove any friendship/follow between them
+  db.prepare('DELETE FROM friendships WHERE (requester_id=? AND addressee_id=?) OR (requester_id=? AND addressee_id=?)').run(me.id, other, other, me.id);
+  db.prepare('DELETE FROM follows WHERE (follower_id=? AND following_id=?) OR (follower_id=? AND following_id=?)').run(me.id, other, other, me.id);
+  ok(res, { blocked: true });
+});
+del('/api/users/:id/block', (req, res, params) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  db.prepare('DELETE FROM blocks WHERE blocker_id=? AND blocked_id=?').run(me.id, Number(params.id));
+  ok(res, { blocked: false });
+});
+
+// Reports
+post('/api/reports', async (req, res) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const { target_type, target_id, reason } = await readBody(req);
+  if (!['post', 'comment', 'user'].includes(target_type) || !target_id) return bad(res, 'invalid report');
+  db.prepare('INSERT INTO reports (reporter_id, target_type, target_id, reason, created_at) VALUES (?,?,?,?,?)')
+    .run(me.id, target_type, Number(target_id), (reason || '').slice(0, 300), now());
+  ok(res, { ok: true });
 });
 
 // Friends
@@ -325,7 +439,7 @@ get('/api/conversations', (req, res) => {
       WHERE (sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?) ORDER BY created_at DESC LIMIT 1`)
       .get(me.id, p.uid, p.uid, me.id);
     const unread = db.prepare('SELECT COUNT(*) c FROM messages WHERE sender_id=? AND receiver_id=? AND read_at IS NULL').get(p.uid, me.id).c;
-    return { user: u, last, unread };
+    return { user: { ...u, online: isOnline(u.id) }, last, unread };
   });
   ok(res, out);
 });
@@ -333,7 +447,8 @@ get('/api/conversations', (req, res) => {
 get('/api/messages/:userId', (req, res, params) => {
   const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
   const other = Number(params.userId);
-  db.prepare('UPDATE messages SET read_at = ? WHERE sender_id=? AND receiver_id=? AND read_at IS NULL').run(now(), other, me.id);
+  const upd = db.prepare('UPDATE messages SET read_at = ? WHERE sender_id=? AND receiver_id=? AND read_at IS NULL').run(now(), other, me.id);
+  if (upd.changes > 0) pushTo(other, 'seen', { by: me.id });
   const rows = db.prepare(`SELECT * FROM messages
     WHERE (sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?) ORDER BY created_at ASC LIMIT 500`)
     .all(me.id, other, other, me.id);
@@ -346,12 +461,21 @@ post('/api/messages', async (req, res) => {
   const other = Number(to);
   if (!other || !content || !content.trim()) return bad(res, 'recipient and content required');
   if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(other)) return bad(res, 'user not found', 404);
+  if (isBlocked(me.id, other)) return bad(res, 'cannot message this user', 403);
   const info = db.prepare('INSERT INTO messages (sender_id, receiver_id, content, created_at) VALUES (?,?,?,?)')
     .run(me.id, other, content.trim(), now());
   const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(Number(info.lastInsertRowid));
   pushTo(other, 'message', msg);
   pushTo(me.id, 'message', msg);
   ok(res, msg);
+});
+
+// Typing indicator
+post('/api/typing', async (req, res) => {
+  const me = auth(req); if (!me) return bad(res, 'unauthorized', 401);
+  const { to } = await readBody(req);
+  if (to) pushTo(Number(to), 'typing', { from: me.id });
+  ok(res, { ok: true });
 });
 
 // WebRTC call signaling (relayed over SSE). data: {kind, to, ...payload}
@@ -394,10 +518,24 @@ get('/api/stream', (req, res) => {
     'Access-Control-Allow-Origin': '*',
   });
   res.write('retry: 3000\n\n');
+  const wasOffline = !clients.has(payload.uid);
   sseAdd(payload.uid, res);
+  db.prepare('UPDATE users SET last_active = ? WHERE id = ?').run(now(), payload.uid);
+  if (wasOffline) broadcastPresence(payload.uid, true);
   const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch {} }, 25000);
-  req.on('close', () => { clearInterval(ping); sseRemove(payload.uid, res); });
+  req.on('close', () => {
+    clearInterval(ping); sseRemove(payload.uid, res);
+    db.prepare('UPDATE users SET last_active = ? WHERE id = ?').run(now(), payload.uid);
+    if (!clients.has(payload.uid)) broadcastPresence(payload.uid, false);
+  });
 });
+
+// notify a user's friends of their online/offline change
+function broadcastPresence(uid, online) {
+  const friends = db.prepare(`SELECT CASE WHEN requester_id=? THEN addressee_id ELSE requester_id END oid
+    FROM friendships WHERE status='accepted' AND (requester_id=? OR addressee_id=?)`).all(uid, uid, uid);
+  for (const f of friends) pushTo(f.oid, 'presence', { user: uid, online, last_active: now() });
+}
 
 /* ----------------------------- ADMIN (separate panel) ----------------------- */
 const ADMIN_KEY = process.env.ADMIN_KEY || 'admin123';
@@ -420,7 +558,22 @@ get('/api/admin/stats', (req, res) => {
     friends: db.prepare(`SELECT COUNT(*) c FROM friendships WHERE status='accepted'`).get().c,
     pending: db.prepare(`SELECT COUNT(*) c FROM friendships WHERE status='pending'`).get().c,
     messages: db.prepare('SELECT COUNT(*) c FROM messages').get().c,
+    reports: db.prepare(`SELECT COUNT(*) c FROM reports WHERE status='pending'`).get().c,
+    online: clients.size,
   });
+});
+
+get('/api/admin/reports', (req, res) => {
+  if (!adminGuard(req, res)) return;
+  const rows = db.prepare(`SELECT r.*, u.name reporter_name FROM reports r JOIN users u ON u.id=r.reporter_id ORDER BY (r.status='pending') DESC, r.created_at DESC LIMIT 200`).all();
+  ok(res, rows);
+});
+post('/api/admin/reports/:id/resolve', async (req, res, params) => {
+  if (!adminGuard(req, res)) return;
+  const body = await readBody(req).catch(() => ({}));
+  const status = body.status === 'rejected' ? 'rejected' : 'resolved';
+  db.prepare('UPDATE reports SET status=?, resolved_at=? WHERE id=?').run(status, now(), Number(params.id));
+  ok(res, { ok: true });
 });
 
 get('/api/admin/users', (req, res) => {

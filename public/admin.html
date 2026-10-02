@@ -57,8 +57,8 @@
     root.innerHTML=`<div class="admin-top"><span class="logo">لمّة</span><span class="tag">لوحة التحكم</span><span style="flex:1"></span><button class="btn sm ghost" id="out">خروج</button></div><div id="body"><div class="spinner"></div></div>`;
     document.getElementById('out').onclick=()=>{localStorage.removeItem('lamma_admin_key');renderLogin();};
     const body=document.getElementById('body');
-    let stats,users,posts;
-    try{ [stats,users,posts]=await Promise.all([api('/api/admin/stats'),api('/api/admin/users'),api('/api/admin/posts')]); }
+    let stats,users,posts,reports;
+    try{ [stats,users,posts,reports]=await Promise.all([api('/api/admin/stats'),api('/api/admin/users'),api('/api/admin/posts'),api('/api/admin/reports')]); }
     catch(e){ localStorage.removeItem('lamma_admin_key'); return renderLogin('انتهت الجلسة، سجّل الدخول'); }
     const stat=(n,l)=>`<div class="stat"><div class="num">${n}</div><div class="lbl">${l}</div></div>`;
     const paint=()=>{
@@ -66,17 +66,22 @@
       if(tab==='users'){
         t=`<table class="at"><tr><th>المستخدم</th><th>المعرّف</th><th>منشورات</th><th>انضم</th><th></th></tr>`+
           (users.length?users.map(u=>`<tr><td>${esc(u.name)}</td><td dir="ltr">@${esc(u.username)}</td><td>${u.post_count}</td><td>${timeAgo(u.created_at)}</td><td><button class="admin-del del" data-du="${u.id}">حذف</button></td></tr>`).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--text-3)">لا مستخدمين</td></tr>`)+`</table>`;
-      } else {
+      } else if(tab==='posts') {
         t=`<table class="at"><tr><th>الكاتب</th><th>المحتوى</th><th>إعجاب</th><th>تعليق</th><th>وقت</th><th></th></tr>`+
           (posts.length?posts.map(p=>`<tr><td>${esc(p.author_name)}</td><td>${p.image?'🖼️ ':''}${esc((p.content||'').slice(0,50))}</td><td>${p.likes}</td><td>${p.comments}</td><td>${timeAgo(p.created_at)}</td><td><button class="admin-del del" data-dp="${p.id}">حذف</button></td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-3)">لا منشورات</td></tr>`)+`</table>`;
+      } else {
+        t=`<table class="at"><tr><th>المُبلِّغ</th><th>النوع</th><th>الهدف</th><th>السبب</th><th>الحالة</th><th></th></tr>`+
+          (reports.length?reports.map(r=>`<tr><td>${esc(r.reporter_name)}</td><td>${esc(r.target_type)}</td><td>#${r.target_id}</td><td>${esc((r.reason||'').slice(0,40))}</td><td>${r.status==='pending'?'⏳ معلّق':(r.status==='resolved'?'✅ محلول':'✖ مرفوض')}</td><td>${r.status==='pending'?`<button class="admin-del" style="color:var(--brand);font-weight:700;background:none" data-rr="${r.id}">حل</button> <button class="admin-del del" data-rx="${r.id}">رفض</button>`:''}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-3)">لا تقارير</td></tr>`)+`</table>`;
       }
       body.innerHTML=`
-        <div class="stats-grid">${stat(stats.users,'مستخدم')}${stat(stats.posts,'منشور')}${stat(stats.comments,'تعليق')}${stat(stats.likes,'إعجاب')}${stat(stats.friends,'صداقة')}${stat(stats.messages,'رسالة')}</div>
-        <div class="admin-tabs"><button class="${tab==='users'?'active':''}" data-t="users">المستخدمون</button><button class="${tab==='posts'?'active':''}" data-t="posts">المنشورات</button></div>
+        <div class="stats-grid">${stat(stats.users,'مستخدم')}${stat(stats.posts,'منشور')}${stat(stats.comments,'تعليق')}${stat(stats.likes,'إعجاب')}${stat(stats.friends,'صداقة')}${stat(stats.messages,'رسالة')}${stat(stats.reports||0,'تقرير معلّق')}${stat(stats.online||0,'متصل الآن')}</div>
+        <div class="admin-tabs"><button class="${tab==='users'?'active':''}" data-t="users">المستخدمون</button><button class="${tab==='posts'?'active':''}" data-t="posts">المنشورات</button><button class="${tab==='reports'?'active':''}" data-t="reports">التقارير</button></div>
         <div style="margin-top:10px">${t}</div>`;
       body.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tab=b.dataset.t;paint();});
       body.querySelectorAll('[data-dp]').forEach(b=>b.onclick=async()=>{ if(!confirm('حذف المنشور؟'))return; await api('/api/admin/posts/'+b.dataset.dp,{method:'DELETE'}); posts=posts.filter(p=>p.id!=b.dataset.dp); stats.posts--; toast('حُذف'); paint(); });
       body.querySelectorAll('[data-du]').forEach(b=>b.onclick=async()=>{ if(!confirm('حذف المستخدم وكل بياناته؟'))return; await api('/api/admin/users/'+b.dataset.du,{method:'DELETE'}); users=users.filter(u=>u.id!=b.dataset.du); stats.users--; toast('حُذف'); paint(); });
+      body.querySelectorAll('[data-rr]').forEach(b=>b.onclick=async()=>{ await api('/api/admin/reports/'+b.dataset.rr+'/resolve',{method:'POST',body:{status:'resolved'}}); const r=reports.find(x=>x.id==b.dataset.rr); if(r)r.status='resolved'; stats.reports--; toast('تم الحل'); paint(); });
+      body.querySelectorAll('[data-rx]').forEach(b=>b.onclick=async()=>{ await api('/api/admin/reports/'+b.dataset.rx+'/resolve',{method:'POST',body:{status:'rejected'}}); const r=reports.find(x=>x.id==b.dataset.rx); if(r)r.status='rejected'; stats.reports--; toast('رُفض'); paint(); });
     };
     paint();
   }

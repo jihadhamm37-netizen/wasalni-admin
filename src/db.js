@@ -85,6 +85,53 @@ CREATE TABLE IF NOT EXISTS notifications (
   read_at     INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id);
+
+CREATE TABLE IF NOT EXISTS follows (
+  follower_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  following_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at   INTEGER NOT NULL,
+  PRIMARY KEY (follower_id, following_id)
+);
+
+CREATE TABLE IF NOT EXISTS saved_posts (
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id    INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, post_id)
+);
+
+CREATE TABLE IF NOT EXISTS blocks (
+  blocker_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  blocked_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (blocker_id, blocked_id)
+);
+
+CREATE TABLE IF NOT EXISTS comment_likes (
+  comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (comment_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS reports (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL,     -- post | comment | user
+  target_id   INTEGER NOT NULL,
+  reason      TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'pending',  -- pending | resolved | rejected
+  created_at  INTEGER NOT NULL,
+  resolved_at INTEGER
+);
 `);
+
+// --- lightweight migrations (add columns if missing) ---
+function hasColumn(table, col) {
+  try { return db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === col); } catch { return false; }
+}
+if (!hasColumn('comments', 'parent_id')) { try { db.exec('ALTER TABLE comments ADD COLUMN parent_id INTEGER'); } catch {} }
+if (!hasColumn('users', 'last_active')) { try { db.exec('ALTER TABLE users ADD COLUMN last_active INTEGER'); } catch {} }
+if (!hasColumn('posts', 'edited_at')) { try { db.exec('ALTER TABLE posts ADD COLUMN edited_at INTEGER'); } catch {} }
 
 export const now = () => Date.now();

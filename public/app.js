@@ -62,6 +62,18 @@ const STR = {
   },
 };
 function t(key, arg) { const v = (STR[prefs.lang] || STR.ar)[key]; return typeof v === 'function' ? v(arg) : (v ?? key); }
+Object.assign(STR.ar, {
+  more: 'المزيد', edit: 'تعديل', savePost: 'حفظ المنشور', unsave: 'إلغاء الحفظ', copyLink: 'نسخ الرابط', report: 'إبلاغ', reportQ: 'سبب الإبلاغ؟', reported: 'تم الإبلاغ، شكراً', copied: 'تم النسخ',
+  reply: 'رد', deleteComment: 'حذف التعليق', edited: 'مُعدّل', saved2: 'تم الحفظ', savedPosts: 'المنشورات المحفوظة', noSaved: 'لا منشورات محفوظة',
+  follow: 'متابعة', unfollow: 'إلغاء المتابعة', followers: 'متابِع', followingL: 'يتابع', block: 'حظر', unblock: 'إلغاء الحظر', blocked2: 'تم الحظر', blockQ: 'حظر هذا المستخدم؟', unblockQ: 'إلغاء حظر هذا المستخدم؟', blockedUser: 'أنت حاظر هذا المستخدم', saveEdit: 'حفظ',
+  online: 'متصل الآن', lastSeen: 'آخر ظهور', typing: 'يكتب…', seen: 'تمت القراءة', sent2: 'أُرسلت',
+});
+Object.assign(STR.en, {
+  more: 'More', edit: 'Edit', savePost: 'Save post', unsave: 'Unsave', copyLink: 'Copy link', report: 'Report', reportQ: 'Reason for report?', reported: 'Reported, thank you', copied: 'Copied',
+  reply: 'Reply', deleteComment: 'Delete comment', edited: 'edited', saved2: 'Saved', savedPosts: 'Saved posts', noSaved: 'No saved posts',
+  follow: 'Follow', unfollow: 'Unfollow', followers: 'followers', followingL: 'following', block: 'Block', unblock: 'Unblock', blocked2: 'Blocked', blockQ: 'Block this user?', unblockQ: 'Unblock this user?', blockedUser: "You've blocked this user", saveEdit: 'Save',
+  online: 'Online', lastSeen: 'Last seen', typing: 'typing…', seen: 'Seen', sent2: 'Sent',
+});
 
 /* ----------------------------- state ----------------------------- */
 const store = {
@@ -104,6 +116,18 @@ function timeAgo(ts) {
 }
 const clockTime = (ts) => new Date(ts).toLocaleTimeString(prefs.lang, { hour: '2-digit', minute: '2-digit' });
 function toast(msg) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; document.body.appendChild(el); setTimeout(() => el.remove(), 2200); }
+function actionSheet(items) {
+  const b = document.createElement('div'); b.className = 'modal-backdrop';
+  b.innerHTML = `<div class="modal"><div class="modal-head"><button class="icon-btn" id="asC" style="background:transparent">${I.x}</button><h3>${t('more')}</h3><span style="width:34px"></span></div><div id="asL"></div></div>`;
+  document.body.appendChild(b);
+  const close = () => b.remove();
+  b.addEventListener('click', (e) => { if (e.target === b) close(); });
+  b.querySelector('#asC').addEventListener('click', close);
+  const L = b.querySelector('#asL');
+  items.filter(Boolean).forEach((it) => { const el = document.createElement('div'); el.className = 'sheet-item' + (it.danger ? ' danger' : ''); el.innerHTML = `${it.icon || ''}<span>${it.label}</span>`; el.addEventListener('click', () => { close(); it.onClick(); }); L.appendChild(el); });
+}
+function copyText(text) { try { navigator.clipboard.writeText(text); } catch {} toast(t('copied')); }
+async function reportTarget(type, id) { const reason = prompt(t('reportQ')); if (reason === null) return; try { await api('/api/reports', { method: 'POST', body: { target_type: type, target_id: Number(id), reason: reason || '' } }); toast(t('reported')); } catch (e) { toast(e.message); } }
 function readFileAsDataURL(file, maxDim = 1200, quality = 0.8) {
   return new Promise((resolve, reject) => {
     const img = new Image(), reader = new FileReader();
@@ -144,6 +168,11 @@ const I = {
   mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
   camOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l18 18M16 10l6-3v10M10.5 6H16a2 2 0 0 1 2 2v5M2 8v8a2 2 0 0 0 2 2h9"/></svg>',
   phoneOff:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 15.5c-1.2 0-2.4-.2-3.6-.6-.4-.1-.8 0-1 .2l-2.2 2.2a15.7 15.7 0 0 1-3-2l13-13-1.4-1.4L2 17.6 3.4 19l2.9-2.9c.9.7 1.9 1.3 2.9 1.8l-.9.9c.2.2.5.3.7.3.1 0 .2 0 .3-.1C12 21 18 21 21 20c.6 0 1-.4 1-1v-2.5c0-.6-.4-1-1-1z"/></svg>',
+  dots:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  bookmark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1z" stroke-linejoin="round"/></svg>',
+  bookmarkFill:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1z"/></svg>',
+  reply:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v3"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>',
 };
 
 /* ----------------------------- navigation ----------------------- */
@@ -179,7 +208,21 @@ function connectStream() {
   });
   es.addEventListener('notification', () => { store.counts.notifications++; paintBadges(); });
   es.addEventListener('signal', (e) => { try { handleSignal(JSON.parse(e.data)); } catch {} });
+  es.addEventListener('typing', (e) => { try { const d = JSON.parse(e.data); if (store.route.name === 'chat' && Number(store.route.params.userId) === Number(d.from)) showTyping(); } catch {} });
+  es.addEventListener('seen', (e) => { try { const d = JSON.parse(e.data); if (store.route.name === 'chat' && Number(store.route.params.userId) === Number(d.by)) { const el = document.getElementById('seenStatus'); if (el) el.textContent = t('seen'); } } catch {} });
+  es.addEventListener('presence', (e) => { try { const d = JSON.parse(e.data); if (store.route.name === 'chat' && Number(store.route.params.userId) === Number(d.user)) setPresence(d.online, d.last_active); } catch {} });
   es.onerror = () => {};
+}
+let typingTimer = null;
+function showTyping() {
+  const sub = document.getElementById('presSub'); if (!sub) return;
+  const prev = sub.textContent; sub.textContent = t('typing'); sub.classList.add('on');
+  clearTimeout(typingTimer); typingTimer = setTimeout(() => { sub.textContent = prev; }, 2500);
+}
+function setPresence(online, lastActive) {
+  const sub = document.getElementById('presSub'); if (!sub) return;
+  sub.classList.toggle('on', !!online);
+  sub.textContent = online ? t('online') : (lastActive ? `${t('lastSeen')} ${timeAgo(lastActive)}` : '');
 }
 async function refreshCounts() { try { store.counts = await api('/api/notifications/count'); paintBadges(); } catch {} }
 
@@ -256,6 +299,7 @@ function render() {
   if (name === 'notifications') return viewNotifications();
   if (name === 'search') return viewSearch();
   if (name === 'settings') return viewSettings();
+  if (name === 'saved') return viewSaved();
   viewFeed();
 }
 
@@ -272,15 +316,37 @@ async function viewFeed() {
 function postCard(p) {
   return `<article class="card post" data-post="${p.id}">
     <div class="post-head"><span data-profile="${p.author.id}">${avatar(p.author, 'sm')}</span>
-      <div class="meta"><div class="name" data-profile="${p.author.id}">${esc(p.author.name)}</div><div class="time">${timeAgo(p.created_at)}</div></div>
-      ${p.author.id === store.me.id ? `<button class="icon-btn" data-del="${p.id}" style="width:34px;height:34px;background:transparent;color:var(--text-3)">${I.x}</button>` : ''}</div>
+      <div class="meta"><div class="name" data-profile="${p.author.id}">${esc(p.author.name)}</div><div class="time">${timeAgo(p.created_at)}${p.edited_at ? ` · <span class="edited-tag">${t('edited')}</span>` : ''}</div></div>
+      <button class="icon-btn" data-more="${p.id}" style="width:34px;height:34px;background:transparent;color:var(--text-3)">${I.dots}</button></div>
     ${p.content ? `<div class="post-body">${esc(p.content)}</div>` : ''}
     ${p.image ? `<div class="post-image"><img src="${esc(p.image)}" alt=""></div>` : ''}
     <div class="post-stats">${p.likes ? `<span>${p.likes} ❤️</span>` : '<span></span>'}<span style="flex:1"></span>${p.comments ? `<span>${p.comments} ${t('comment')}</span>` : ''}</div>
     <div class="post-actions">
       <button data-like="${p.id}" class="${p.liked ? 'liked' : ''}">${p.liked ? I.heartFill : I.heart}<span>${t('like')}</span></button>
       <button data-comments="${p.id}">${I.comment}<span>${t('comment')}</span></button>
-      <button data-share="${p.id}">${I.share}<span>${t('share')}</span></button></div></article>`;
+      <button data-share="${p.id}">${I.share}<span>${t('share')}</span></button>
+      <button data-save="${p.id}" class="${p.saved ? 'liked' : ''}">${p.saved ? I.bookmarkFill : I.bookmark}<span>${t('save')}</span></button></div></article>`;
+}
+function postMenu(p) {
+  const mine = p.author.id === store.me.id;
+  actionSheet([
+    { icon: p.saved ? I.bookmarkFill : I.bookmark, label: p.saved ? t('unsave') : t('savePost'), onClick: () => toggleSave(p.id) },
+    { icon: I.share, label: t('copyLink'), onClick: () => copyText(location.origin) },
+    mine ? { icon: I.image, label: t('edit'), onClick: () => editPost(p) } : null,
+    mine ? { icon: I.trash, label: t('deleted'), danger: true, onClick: () => delPost(p.id) } : null,
+    !mine ? { icon: I.x, label: t('report'), danger: true, onClick: () => reportTarget('post', p.id) } : null,
+  ]);
+}
+async function toggleSave(id) { try { await api(`/api/posts/${id}/save`, { method: 'POST' }); refreshCurrentFeed(); } catch (e) { toast(e.message); } }
+async function delPost(id) { if (!confirm(t('deletePostQ'))) return; try { await api(`/api/posts/${id}`, { method: 'DELETE' }); document.querySelector(`.post[data-post="${id}"]`)?.remove(); toast(t('deleted')); } catch (e) { toast(e.message); } }
+function refreshCurrentFeed() { if (store.route.name === 'feed') viewFeed(); else if (store.route.name === 'profile') viewProfile(); else if (store.route.name === 'saved') viewSaved(); }
+function editPost(p) {
+  const b = document.createElement('div'); b.className = 'modal-backdrop';
+  b.innerHTML = `<div class="modal"><div class="modal-head"><button class="icon-btn" id="epC" style="background:transparent">${I.x}</button><h3>${t('edit')}</h3><button class="btn sm" id="epS">${t('save')}</button></div><div class="compose-row"><textarea id="epT">${esc(p.content || '')}</textarea></div></div>`;
+  document.body.appendChild(b);
+  b.addEventListener('click', (e) => { if (e.target === b) b.remove(); });
+  b.querySelector('#epC').addEventListener('click', () => b.remove());
+  b.querySelector('#epS').addEventListener('click', async () => { try { await api(`/api/posts/${p.id}`, { method: 'PUT', body: { content: b.querySelector('#epT').value.trim() } }); b.remove(); toast(t('saved')); refreshCurrentFeed(); } catch (e) { toast(e.message); } });
 }
 function wirePosts(root) {
   root.querySelectorAll('[data-profile]').forEach((el) => el.addEventListener('click', () => navigate('profile', { id: Number(el.dataset.profile) })));
@@ -290,11 +356,17 @@ function wirePosts(root) {
       card.replaceWith(fresh.firstElementChild); wirePosts(fresh);
     } catch (e) { toast(e.message); }
   }));
+  root.querySelectorAll('[data-save]').forEach((el) => el.addEventListener('click', async () => {
+    try { await api(`/api/posts/${el.dataset.save}/save`, { method: 'POST' });
+      const pid = el.dataset.save; const updated = await api(`/api/posts/${pid}`);
+      const card = el.closest('.post'); const fresh = document.createElement('div'); fresh.innerHTML = postCard(updated);
+      card.replaceWith(fresh.firstElementChild); wirePosts(fresh);
+    } catch (e) { toast(e.message); }
+  }));
   root.querySelectorAll('[data-comments]').forEach((el) => el.addEventListener('click', () => openComments(Number(el.dataset.comments))));
-  root.querySelectorAll('[data-share]').forEach((el) => el.addEventListener('click', () => toast(t('linkCopied'))));
-  root.querySelectorAll('[data-del]').forEach((el) => el.addEventListener('click', async () => {
-    if (!confirm(t('deletePostQ'))) return;
-    try { await api(`/api/posts/${el.dataset.del}`, { method: 'DELETE' }); el.closest('.post').remove(); toast(t('deleted')); } catch (e) { toast(e.message); }
+  root.querySelectorAll('[data-share]').forEach((el) => el.addEventListener('click', () => copyText(location.origin)));
+  root.querySelectorAll('[data-more]').forEach((el) => el.addEventListener('click', async () => {
+    try { const p = await api(`/api/posts/${el.dataset.more}`); postMenu(p); } catch (e) { toast(e.message); }
   }));
 }
 function openComposer() {
@@ -320,23 +392,33 @@ function openComposer() {
   });
 }
 async function openComments(postId) {
+  let replyTo = null;
   const b = document.createElement('div'); b.className = 'modal-backdrop';
-  b.innerHTML = `<div class="modal" style="height:80vh;display:flex;flex-direction:column"><div class="modal-head"><button class="icon-btn" id="kClose" style="background:transparent">${I.x}</button><h3>${t('comments')}</h3><span style="width:34px"></span></div>
+  b.innerHTML = `<div class="modal" style="height:82vh;display:flex;flex-direction:column"><div class="modal-head"><button class="icon-btn" id="kClose" style="background:transparent">${I.x}</button><h3>${t('comments')}</h3><span style="width:34px"></span></div>
     <div id="kList" style="flex:1;overflow-y:auto"><div class="spinner"></div></div>
-    <div style="display:flex;gap:8px;align-items:flex-end;border-top:1px solid var(--border);padding-top:12px"><textarea id="kInput" class="input" rows="1" placeholder="${t('writeComment')}" style="flex:1"></textarea><button class="chat-send" id="kSend">${I.send}</button></div></div>`;
+    <div id="replyBar" hidden style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface-2);border-radius:8px;margin-bottom:6px;font-size:13px"><span id="replyTxt" style="flex:1;color:var(--text-2)"></span><button class="icon-btn" id="replyX" style="width:26px;height:26px;background:transparent">${I.x}</button></div>
+    <div style="display:flex;gap:8px;align-items:flex-end;border-top:1px solid var(--border);padding-top:10px"><textarea id="kInput" class="input" rows="1" placeholder="${t('writeComment')}" style="flex:1"></textarea><button class="chat-send" id="kSend">${I.send}</button></div></div>`;
   document.body.appendChild(b);
   b.addEventListener('click', (e) => { if (e.target === b) b.remove(); });
   b.querySelector('#kClose').addEventListener('click', () => b.remove());
   const list = b.querySelector('#kList');
+  const renderComment = (c, isReply) => `<div class="comment ${isReply ? 'reply' : ''}" data-cid="${c.id}">${avatar(c.author, 'xs')}<div style="flex:1"><div class="bubble2"><div class="name">${esc(c.author.name)}</div><div class="txt">${esc(c.content)}</div></div><div class="comment-acts"><span class="${c.liked ? 'liked' : ''}" data-likec="${c.id}">${t('like')}${c.like_count ? ' (' + c.like_count + ')' : ''}</span>${!isReply ? `<span data-replyc="${c.id}" data-rname="${esc(c.author.name)}">${t('reply')}</span>` : ''}${c.author.id === store.me.id ? `<span style="color:var(--accent)" data-delc="${c.id}">${t('deleteComment')}</span>` : ''}<span style="color:var(--text-3)">${timeAgo(c.created_at)}</span></div></div></div>`;
   async function load() {
-    const comments = await api(`/api/posts/${postId}/comments`);
-    list.innerHTML = comments.length ? comments.map((c) => `<div class="comment">${avatar(c.author, 'xs')}<div><div class="bubble2"><div class="name">${esc(c.author.name)}</div><div class="txt">${esc(c.content)}</div></div><div class="time">${timeAgo(c.created_at)}</div></div></div>`).join('') : `<div class="empty"><p>${t('noComments')}</p></div>`;
-    list.scrollTop = list.scrollHeight;
+    const all = await api(`/api/posts/${postId}/comments`);
+    const tops = all.filter((c) => !c.parent_id);
+    const byParent = {}; all.filter((c) => c.parent_id).forEach((r) => { (byParent[r.parent_id] = byParent[r.parent_id] || []).push(r); });
+    list.innerHTML = tops.length ? tops.map((c) => renderComment(c, false) + (byParent[c.id] || []).map((r) => renderComment(r, true)).join('')).join('') : `<div class="empty"><p>${t('noComments')}</p></div>`;
+    list.querySelectorAll('[data-likec]').forEach((el) => el.addEventListener('click', async () => { try { await api(`/api/comments/${el.dataset.likec}/like`, { method: 'POST' }); load(); } catch (e) { toast(e.message); } }));
+    list.querySelectorAll('[data-replyc]').forEach((el) => el.addEventListener('click', () => { replyTo = { id: el.dataset.replyc, name: el.dataset.rname }; b.querySelector('#replyBar').hidden = false; b.querySelector('#replyTxt').textContent = `${t('reply')} → ${el.dataset.rname}`; b.querySelector('#kInput').focus(); }));
+    list.querySelectorAll('[data-delc]').forEach((el) => el.addEventListener('click', async () => { try { await api(`/api/comments/${el.dataset.delc}`, { method: 'DELETE' }); load(); } catch (e) { toast(e.message); } }));
   }
   load();
+  b.querySelector('#replyX').addEventListener('click', () => { replyTo = null; b.querySelector('#replyBar').hidden = true; });
   const send = async () => {
     const input = b.querySelector('#kInput'); const content = input.value.trim(); if (!content) return; input.value = '';
-    try { await api(`/api/posts/${postId}/comments`, { method: 'POST', body: { content } }); await load(); } catch (e) { toast(e.message); }
+    const body = { content }; if (replyTo) body.parent_id = Number(replyTo.id);
+    replyTo = null; b.querySelector('#replyBar').hidden = true;
+    try { await api(`/api/posts/${postId}/comments`, { method: 'POST', body }); await load(); } catch (e) { toast(e.message); }
   };
   b.querySelector('#kSend').addEventListener('click', send);
   b.querySelector('#kInput').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
@@ -402,18 +484,22 @@ async function viewProfile() {
   try {
     const u = await api('/api/users/' + id); const posts = await api(`/api/users/${id}/posts`);
     const wrap = document.getElementById('profileWrap');
+    const followBtn = () => u.am_following ? `<button class="btn ghost" id="followBtn">${t('unfollow')}</button>` : `<button class="btn" id="followBtn">${t('follow')}</button>`;
     const statusBtn = () => {
       if (u.friend_status === 'self') return `<button class="btn ghost" id="editBtn">${t('editProfile')}</button>`;
-      if (u.friend_status === 'friends') return `<button class="btn ghost" id="msgBtn">${t('message')}</button><button class="btn" id="callBtn">${I.phone}</button><button class="btn" id="vcallBtn">${I.video}</button>`;
-      if (u.friend_status === 'request_sent') return `<button class="btn ghost" disabled>${t('requestSentBtn')}</button>`;
-      if (u.friend_status === 'request_received') return `<button class="btn" id="addBtn">${t('acceptReq')}</button>`;
-      return `<button class="btn" id="addBtn">${t('addFriend')}</button>`;
+      if (u.blocked) return `<button class="btn" id="unblockBtn">${t('unblock')}</button>`;
+      let left = '';
+      if (u.friend_status === 'friends') left = `<button class="btn ghost" id="msgBtn">${t('message')}</button><button class="btn" id="callBtn">${I.phone}</button><button class="btn" id="vcallBtn">${I.video}</button>`;
+      else if (u.friend_status === 'request_sent') left = `<button class="btn ghost" disabled>${t('requestSentBtn')}</button>`;
+      else if (u.friend_status === 'request_received') left = `<button class="btn" id="addBtn">${t('acceptReq')}</button>`;
+      else left = `<button class="btn" id="addBtn">${t('addFriend')}</button>`;
+      return left + followBtn();
     };
-    wrap.innerHTML = `<div class="profile-head"><div class="profile-cover">${u.cover ? `<img src="${esc(u.cover)}">` : ''}${!isMe ? `<button class="icon-btn back-btn" id="backBtn" style="position:absolute;top:calc(12px + var(--safe-t));inset-inline-start:12px;background:rgba(0,0,0,.4);color:#fff">${I.back}</button>` : ''}</div>
+    wrap.innerHTML = `<div class="profile-head"><div class="profile-cover">${u.cover ? `<img src="${esc(u.cover)}">` : ''}${!isMe ? `<button class="icon-btn back-btn" id="backBtn" style="position:absolute;top:calc(12px + var(--safe-t));inset-inline-start:12px;background:rgba(0,0,0,.4);color:#fff">${I.back}</button><button class="icon-btn" id="moreBtn" style="position:absolute;top:calc(12px + var(--safe-t));inset-inline-end:12px;background:rgba(0,0,0,.4);color:#fff">${I.dots}</button>` : ''}</div>
       <div class="profile-info">${avatar(u, 'lg')}<div class="name">${esc(u.name)}</div><div class="username" dir="ltr">@${esc(u.username)}</div>${u.bio ? `<div class="bio">${esc(u.bio)}</div>` : ''}
-      <div class="profile-stats"><span><b>${u.post_count}</b> ${t('postsLbl')}</span><span><b>${u.friend_count}</b> ${t('friendsCountLbl')}</span></div>
+      <div class="profile-stats"><span><b>${u.post_count}</b> ${t('postsLbl')}</span><span><b>${u.friend_count}</b> ${t('friendsCountLbl')}</span><span><b>${u.followers}</b> ${t('followers')}</span><span><b>${u.following}</b> ${t('followingL')}</span></div>
       <div class="profile-cta">${statusBtn()}</div></div></div>
-      <div class="feed" style="padding-top:10px">${posts.length ? posts.map(postCard).join('') : `<div class="empty"><p>${t('noPosts')}</p></div>`}</div>`;
+      ${u.blocked ? `<div class="empty"><p>${t('blockedUser')}</p></div>` : `<div class="feed" style="padding-top:10px">${posts.length ? posts.map(postCard).join('') : `<div class="empty"><p>${t('noPosts')}</p></div>`}</div>`}`;
     wirePosts(wrap);
     wrap.querySelector('#backBtn')?.addEventListener('click', () => navigate('feed'));
     wrap.querySelector('#editBtn')?.addEventListener('click', () => openEditProfile(u));
@@ -421,6 +507,14 @@ async function viewProfile() {
     wrap.querySelector('#callBtn')?.addEventListener('click', () => startCall(u, false));
     wrap.querySelector('#vcallBtn')?.addEventListener('click', () => startCall(u, true));
     wrap.querySelector('#addBtn')?.addEventListener('click', async () => { try { await api('/api/friends/request', { method: 'POST', body: { user_id: u.id } }); viewProfile(); } catch (e) { toast(e.message); } });
+    wrap.querySelector('#followBtn')?.addEventListener('click', async () => { try { await api(`/api/users/${u.id}/follow`, { method: u.am_following ? 'DELETE' : 'POST' }); viewProfile(); } catch (e) { toast(e.message); } });
+    wrap.querySelector('#unblockBtn')?.addEventListener('click', async () => { if (!confirm(t('unblockQ'))) return; try { await api(`/api/users/${u.id}/block`, { method: 'DELETE' }); viewProfile(); } catch (e) { toast(e.message); } });
+    wrap.querySelector('#moreBtn')?.addEventListener('click', () => actionSheet([
+      { icon: I.share, label: t('copyLink'), onClick: () => copyText(location.origin) },
+      { icon: I.x, label: t('report'), danger: true, onClick: () => reportTarget('user', u.id) },
+      u.blocked ? { icon: I.x, label: t('unblock'), onClick: () => api(`/api/users/${u.id}/block`, { method: 'DELETE' }).then(viewProfile) }
+                : { icon: I.x, label: t('block'), danger: true, onClick: async () => { if (!confirm(t('blockQ'))) return; try { await api(`/api/users/${u.id}/block`, { method: 'POST' }); toast(t('blocked2')); viewProfile(); } catch (e) { toast(e.message); } } },
+    ]));
   } catch (e) { toast(e.message); }
 }
 function openEditProfile(u) {
@@ -457,24 +551,34 @@ async function loadChats() {
 async function viewChat() {
   const other = store.route.params.userId; let u = {};
   try { u = await api('/api/users/' + other); } catch {}
-  $app.innerHTML = `<div class="screen"><header class="chat-head"><button class="icon-btn back-btn" id="cBack" style="background:transparent">${I.back}</button><span data-profile="${other}">${avatar(u, 'xs')}</span><div class="name" data-profile="${other}" style="flex:1">${esc(u.name || '')}</div><div class="call-head-btns"><button class="icon-btn" id="voiceBtn">${I.phone}</button><button class="icon-btn" id="videoBtn">${I.video}</button></div></header>
+  const presInit = u.online ? t('online') : (u.last_active ? `${t('lastSeen')} ${timeAgo(u.last_active)}` : '');
+  $app.innerHTML = `<div class="screen"><header class="chat-head"><button class="icon-btn back-btn" id="cBack" style="background:transparent">${I.back}</button>
+      <span class="avatar-wrap" data-profile="${other}">${avatar(u, 'xs')}${u.online ? '<span class="online-dot"></span>' : ''}</span>
+      <div style="flex:1;min-width:0"><div class="name" data-profile="${other}">${esc(u.name || '')}</div><div class="sub ${u.online ? 'on' : ''}" id="presSub">${presInit}</div></div>
+      <div class="call-head-btns"><button class="icon-btn" id="voiceBtn">${I.phone}</button><button class="icon-btn" id="videoBtn">${I.video}</button></div></header>
     <div class="chat-body" id="chatBody"><div class="spinner"></div></div>
+    <div class="seen-status" id="seenStatus"></div>
     <div class="chat-input"><textarea id="mInput" rows="1" placeholder="${t('typeMessage')}"></textarea><button class="chat-send" id="mSend">${I.send}</button></div></div>`;
   document.getElementById('cBack').addEventListener('click', () => navigate('chats'));
   document.querySelectorAll('[data-profile]').forEach((b) => b.addEventListener('click', () => navigate('profile', { id: Number(other) })));
   document.getElementById('voiceBtn').addEventListener('click', () => startCall(u, false));
   document.getElementById('videoBtn').addEventListener('click', () => startCall(u, true));
   const body = document.getElementById('chatBody');
+  const updateSeen = (msgs) => { const mine = msgs.filter((m) => m.sender_id === store.me.id); const last = mine[mine.length - 1]; const el = document.getElementById('seenStatus'); if (el) el.textContent = last ? (last.read_at ? t('seen') : t('sent2')) : ''; };
   try {
     const msgs = await api('/api/messages/' + other);
     body.innerHTML = msgs.map(bubbleHTML).join('') || `<div class="empty"><p>${t('startChat')}</p></div>`;
-    body.scrollTop = body.scrollHeight;
+    body.scrollTop = body.scrollHeight; updateSeen(msgs);
     store.counts.messages = Math.max(0, store.counts.messages - msgs.filter((m) => m.receiver_id === store.me.id && !m.read_at).length); paintBadges();
   } catch (e) { toast(e.message); }
   const input = document.getElementById('mInput');
-  input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 110) + 'px'; });
+  let lastTyping = 0;
+  input.addEventListener('input', () => {
+    input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 110) + 'px';
+    const n = Date.now(); if (n - lastTyping > 2000) { lastTyping = n; api('/api/typing', { method: 'POST', body: { to: Number(other) } }).catch(() => {}); }
+  });
   const send = async () => { const content = input.value.trim(); if (!content) return; input.value = ''; input.style.height = 'auto';
-    try { await api('/api/messages', { method: 'POST', body: { to: Number(other), content } }); } catch (e) { toast(e.message); } };
+    try { await api('/api/messages', { method: 'POST', body: { to: Number(other), content } }); const el = document.getElementById('seenStatus'); if (el) el.textContent = t('sent2'); } catch (e) { toast(e.message); } };
   document.getElementById('mSend').addEventListener('click', send);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
 }
@@ -502,11 +606,22 @@ function viewSettings() {
       <div class="set-row"><span class="ic">🌐</span><span class="lbl">${t('language')}</span>
         <div class="seg"><button data-lang="ar" class="${prefs.lang === 'ar' ? 'on' : ''}">${t('arabic')}</button><button data-lang="en" class="${prefs.lang === 'en' ? 'on' : ''}">${t('english')}</button></div></div>
     </div>
+    <div class="set-group"><div class="set-row" id="savedRow"><span class="ic">${I.bookmark}</span><span class="lbl">${t('savedPosts')}</span></div></div>
     <div class="set-group"><div class="set-row" id="logoutRow"><span class="ic">${I.logout}</span><span class="lbl" style="color:var(--accent)">${t('logout')}</span></div></div>
     <div style="text-align:center;color:var(--text-3);font-size:12px;margin-top:16px">لمّة · Lamma</div></div>`);
   document.getElementById('darkTog').addEventListener('change', (e) => setTheme(e.target.checked ? 'dark' : 'light'));
   document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lang !== prefs.lang) setLang(b.dataset.lang); }));
+  document.getElementById('savedRow').addEventListener('click', () => navigate('saved'));
   document.getElementById('logoutRow').addEventListener('click', () => { if (confirm(t('logoutQ'))) logout(); });
+}
+
+async function viewSaved() {
+  shell(`<div><div class="section-title">${t('savedPosts')}</div><div class="feed" id="savedList"><div class="spinner"></div></div></div>`);
+  try {
+    const posts = await api('/api/posts/saved'); const list = document.getElementById('savedList');
+    if (!posts.length) list.innerHTML = `<div class="empty"><div class="big">🔖</div><p>${t('noSaved')}</p></div>`;
+    else { list.innerHTML = posts.map(postCard).join(''); wirePosts(list); }
+  } catch (e) { toast(e.message); }
 }
 
 /* ============================ CALLS (WebRTC) ============================ */
