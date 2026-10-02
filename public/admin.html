@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0e7490" />
+  <title>لمّة — لوحة التحكم</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .admin-shell { max-width: 820px; margin: 0 auto; padding: 16px; }
+    .admin-top { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+    .admin-top .logo { font-size:22px; font-weight:800; color:var(--brand); }
+    .admin-top .tag { font-size:13px; color:var(--text-3); }
+    .stats-grid { grid-template-columns: repeat(3,1fr); }
+    @media (max-width:520px){ .stats-grid{ grid-template-columns:repeat(2,1fr);} }
+    table.at { width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+    table.at th, table.at td { padding:10px 12px; text-align:start; font-size:14px; border-bottom:1px solid var(--border); }
+    table.at th { background:var(--surface-2); font-size:12px; color:var(--text-2); }
+    table.at tr:last-child td { border-bottom:none; }
+  </style>
+</head>
+<body>
+  <div id="root" class="admin-shell"></div>
+  <script>
+  const API = '';
+  const KEY = () => localStorage.getItem('lamma_admin_key') || '';
+  const root = document.getElementById('root');
+  const esc = (s='') => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const timeAgo = (ts)=>{const s=(Date.now()-ts)/1000;if(s<60)return'الآن';if(s<3600)return Math.floor(s/60)+' د';if(s<86400)return Math.floor(s/3600)+' س';return new Date(ts).toLocaleDateString('ar',{day:'numeric',month:'short'});};
+  function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2200);}
+  async function api(path,opts={}){
+    const r=await fetch(API+path,{method:opts.method||'GET',headers:{'Content-Type':'application/json','x-admin-key':KEY()},body:opts.body?JSON.stringify(opts.body):undefined});
+    const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(d.error||'خطأ'); return d;
+  }
+
+  function renderLogin(err){
+    root.innerHTML = `
+      <div class="auth" style="min-height:90vh">
+        <div class="brand"><img class="mark" src="/icon.svg" style="width:72px;height:72px;border-radius:20px"><h1 style="font-size:30px">لوحة التحكم</h1><p>تطبيق لمّة</p></div>
+        ${err?`<div class="err">${esc(err)}</div>`:''}
+        <div class="field"><label>مفتاح الإدارة</label><input id="k" class="input" type="password" placeholder="ADMIN_KEY"></div>
+        <button class="btn block" id="go">دخول</button>
+      </div>`;
+    const submit=async()=>{
+      const k=document.getElementById('k').value.trim(); if(!k)return;
+      localStorage.setItem('lamma_admin_key',k);
+      try{ await api('/api/admin/login',{method:'POST',body:{key:k}}); renderDash(); }
+      catch(e){ localStorage.removeItem('lamma_admin_key'); renderLogin('مفتاح غير صحيح'); }
+    };
+    document.getElementById('go').onclick=submit;
+    document.getElementById('k').addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
+  }
+
+  let tab='users';
+  async function renderDash(){
+    root.innerHTML=`<div class="admin-top"><span class="logo">لمّة</span><span class="tag">لوحة التحكم</span><span style="flex:1"></span><button class="btn sm ghost" id="out">خروج</button></div><div id="body"><div class="spinner"></div></div>`;
+    document.getElementById('out').onclick=()=>{localStorage.removeItem('lamma_admin_key');renderLogin();};
+    const body=document.getElementById('body');
+    let stats,users,posts;
+    try{ [stats,users,posts]=await Promise.all([api('/api/admin/stats'),api('/api/admin/users'),api('/api/admin/posts')]); }
+    catch(e){ localStorage.removeItem('lamma_admin_key'); return renderLogin('انتهت الجلسة، سجّل الدخول'); }
+    const stat=(n,l)=>`<div class="stat"><div class="num">${n}</div><div class="lbl">${l}</div></div>`;
+    const paint=()=>{
+      let t='';
+      if(tab==='users'){
+        t=`<table class="at"><tr><th>المستخدم</th><th>المعرّف</th><th>منشورات</th><th>انضم</th><th></th></tr>`+
+          (users.length?users.map(u=>`<tr><td>${esc(u.name)}</td><td dir="ltr">@${esc(u.username)}</td><td>${u.post_count}</td><td>${timeAgo(u.created_at)}</td><td><button class="admin-del del" data-du="${u.id}">حذف</button></td></tr>`).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--text-3)">لا مستخدمين</td></tr>`)+`</table>`;
+      } else {
+        t=`<table class="at"><tr><th>الكاتب</th><th>المحتوى</th><th>إعجاب</th><th>تعليق</th><th>وقت</th><th></th></tr>`+
+          (posts.length?posts.map(p=>`<tr><td>${esc(p.author_name)}</td><td>${p.image?'🖼️ ':''}${esc((p.content||'').slice(0,50))}</td><td>${p.likes}</td><td>${p.comments}</td><td>${timeAgo(p.created_at)}</td><td><button class="admin-del del" data-dp="${p.id}">حذف</button></td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-3)">لا منشورات</td></tr>`)+`</table>`;
+      }
+      body.innerHTML=`
+        <div class="stats-grid">${stat(stats.users,'مستخدم')}${stat(stats.posts,'منشور')}${stat(stats.comments,'تعليق')}${stat(stats.likes,'إعجاب')}${stat(stats.friends,'صداقة')}${stat(stats.messages,'رسالة')}</div>
+        <div class="admin-tabs"><button class="${tab==='users'?'active':''}" data-t="users">المستخدمون</button><button class="${tab==='posts'?'active':''}" data-t="posts">المنشورات</button></div>
+        <div style="margin-top:10px">${t}</div>`;
+      body.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tab=b.dataset.t;paint();});
+      body.querySelectorAll('[data-dp]').forEach(b=>b.onclick=async()=>{ if(!confirm('حذف المنشور؟'))return; await api('/api/admin/posts/'+b.dataset.dp,{method:'DELETE'}); posts=posts.filter(p=>p.id!=b.dataset.dp); stats.posts--; toast('حُذف'); paint(); });
+      body.querySelectorAll('[data-du]').forEach(b=>b.onclick=async()=>{ if(!confirm('حذف المستخدم وكل بياناته؟'))return; await api('/api/admin/users/'+b.dataset.du,{method:'DELETE'}); users=users.filter(u=>u.id!=b.dataset.du); stats.users--; toast('حُذف'); paint(); });
+    };
+    paint();
+  }
+
+  if(KEY()) renderDash(); else renderLogin();
+  </script>
+</body>
+</html>
